@@ -63,7 +63,7 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val battery = rememberBattery()
     val now = rememberNow()
-    val is24 = DateFormat.is24HourFormat(ctx)
+    val is24 = true
     val prefs = remember { ctx.getSharedPreferences("teddy", Context.MODE_PRIVATE) }
     val dim = DimLevels[prefs.getInt("dim", 2) % DimLevels.size].coerceAtLeast(0.35f)
     val showText = prefs.getBoolean("show_text", false)

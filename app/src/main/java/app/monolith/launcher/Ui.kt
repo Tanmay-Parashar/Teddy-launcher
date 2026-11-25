@@ -313,7 +313,7 @@ fun HomeContent(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
-    val is24 = DateFormat.is24HourFormat(ctx)
+    val is24 = true
     val color = ClockColors[vm.clockColor % ClockColors.size]
     val shadow = Shadow(
         color = if (vm.clockColor == 1) Color.White.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.45f),
@@ -791,7 +791,7 @@ fun StandBy(battery: Battery) {
     val now = rememberNow()
     val night = now.hour >= 22 || now.hour < 6
     val color = if (night) Color(0xFFB3261E) else Color.White
-    val is24 = DateFormat.is24HourFormat(ctx)
+    val is24 = true
 
     DisposableEffect(night, battery.charging) {
         val window = ctx.findActivity()?.window
