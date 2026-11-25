@@ -22,6 +22,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -342,37 +344,69 @@ fun HomeContent(
 
         Spacer(Modifier.weight(1f))
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            apps.forEach { app ->
-                var menu by remember { mutableStateOf(false) }
-                Box {
-                    Row(
-                        Modifier
-                            .combinedClickable(
-                                onClick = { launchApp(ctx, app) },
-                                onLongClick = { menu = true },
-                            )
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AppGlyph(app, 34.dp, color, vm.iconMono)
-                        Spacer(Modifier.width(16.dp))
-                        Text(
-                            text = app.label,
-                            maxLines = 1,
-                            style = TextStyle(
-                                color = color,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 0.3.sp,
-                                shadow = shadow,
-                            ),
-                        )
-                    }
-                    AppMenu(menu, { menu = false }, app, vm, pinned = true)
+        val homeApps = vm.homePkgs.mapNotNull { p -> vm.apps.firstOrNull { it.pkg == p } }
+        Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            homeApps.chunked(4).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    row.forEach { app -> GlowTile(app, vm, pinned = true, size = 56.dp) }
+                    repeat(4 - row.size) { Spacer(Modifier.size(56.dp)) }
                 }
             }
         }
+        Spacer(Modifier.height(26.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(Color.White.copy(alpha = 0.08f))
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            apps.forEach { app -> GlowTile(app, vm, pinned = true, size = 52.dp) }
+        }
+    }
+}
+
+/** White rounded tile, colour icon, coloured layered-stroke glow (no blur: cheap to draw). */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun GlowTile(app: AppItem, vm: LauncherViewModel, pinned: Boolean, size: Dp) {
+    val ctx = LocalContext.current
+    var menu by remember { mutableStateOf(false) }
+    val glow = remember(app.glow) { Color(app.glow) }
+    val shape = RoundedCornerShape(size * 0.28f)
+    Box {
+        Box(
+            Modifier
+                .size(size)
+                .drawBehind {
+                    val r = size.toPx() * 0.28f
+                    for (i in 4 downTo 1) {
+                        val grow = i * 2.6.dp.toPx()
+                        drawRoundRect(
+                            color = glow.copy(alpha = 0.07f * (5 - i)),
+                            topLeft = Offset(-grow, -grow),
+                            size = androidx.compose.ui.geometry.Size(this.size.width + grow * 2, this.size.height + grow * 2),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(r + grow),
+                        )
+                    }
+                }
+                .clip(shape)
+                .background(Color.White)
+                .border(1.6.dp, glow, shape)
+                .combinedClickable(
+                    onClick = { launchApp(ctx, app) },
+                    onLongClick = { menu = true },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                bitmap = app.icon,
+                contentDescription = app.label,
+                modifier = Modifier.size(size * 0.66f).clip(RoundedCornerShape(size * 0.2f)),
+            )
+        }
+        AppMenu(menu, { menu = false }, app, vm, pinned = pinned)
     }
 }
 
@@ -689,7 +723,11 @@ fun AppMenu(
             )
         } else {
             DropdownMenuItem(
-                text = { Text("Pin to home") },
+                text = { Text("Add to home") },
+                onClick = { vm.addHome(app.pkg); onDismiss() },
+            )
+            DropdownMenuItem(
+                text = { Text("Add to dock") },
                 onClick = { vm.pin(app.pkg); onDismiss() },
             )
         }

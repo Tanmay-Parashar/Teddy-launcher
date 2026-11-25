@@ -28,6 +28,7 @@ data class AppItem(
     val cls: String,
     val icon: ImageBitmap,
     val mono: ImageBitmap? = null,
+    val glow: Int = 0xFF9FB4FF.toInt(),
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,6 +45,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private set
 
     /** 0 = white, 1 = black, 2 = red */
+    var homePkgs by mutableStateOf(
+        prefs.getString("home", null)?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
+    )
+        private set
+
     var clockColor by mutableIntStateOf(prefs.getInt("clock_color", 0))
         private set
 
@@ -112,17 +118,28 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun pin(pkg: String) {
-        dockPkgs = (dockPkgs.filter { it != pkg } + pkg).takeLast(6)
+        dockPkgs = (dockPkgs.filter { it != pkg } + pkg).takeLast(5)
+        homePkgs = homePkgs.filter { it != pkg }
+        saveDock()
+    }
+
+    fun addHome(pkg: String) {
+        homePkgs = (homePkgs.filter { it != pkg } + pkg).takeLast(12)
+        dockPkgs = dockPkgs.filter { it != pkg }
         saveDock()
     }
 
     fun unpin(pkg: String) {
         dockPkgs = dockPkgs.filter { it != pkg }
+        homePkgs = homePkgs.filter { it != pkg }
         saveDock()
     }
 
     private fun saveDock() {
-        prefs.edit().putString("dock", dockPkgs.joinToString(",")).apply()
+        prefs.edit()
+            .putString("dock", dockPkgs.joinToString(","))
+            .putString("home", homePkgs.joinToString(","))
+            .apply()
     }
 
     fun refresh() {
@@ -132,6 +149,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             if (prefs.getString("dock", null) == null && dockPkgs.isEmpty()) {
                 val defaults = defaultDock().filter { p -> list.any { it.pkg == p } }
                 if (defaults.isNotEmpty()) dockPkgs = defaults
+            }
+            if (prefs.getString("home", null) == null && homePkgs.isEmpty()) {
+                val wanted = listOf(
+                    "com.whatsapp", "com.google.android.youtube", "com.instagram.android",
+                    "com.spotify.music", "com.google.android.gm", "com.google.android.apps.maps",
+                    "com.google.android.apps.photos", "com.google.android.calendar",
+                )
+                val picks = wanted.filter { p -> list.any { it.pkg == p } && p !in dockPkgs }
+                if (picks.isNotEmpty()) {
+                    homePkgs = picks
+                    saveDock()
+                }
             }
         }
     }
@@ -143,15 +172,43 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             .filter { it.activityInfo.packageName != ownPkg }
             .map { ri ->
                 val d = ri.loadIcon(pm)
+                val bmp = d.toBitmap(96, 96)
                 AppItem(
                     label = ri.loadLabel(pm).toString(),
                     pkg = ri.activityInfo.packageName,
                     cls = ri.activityInfo.name,
-                    icon = d.toBitmap(96, 96).asImageBitmap(),
+                    icon = bmp.asImageBitmap(),
                     mono = monoIcon(d),
+                    glow = dominantColor(bmp),
                 )
             }
             .sortedBy { it.label.lowercase() }
+    }
+
+    /** Saturation-weighted average colour; soft blue-white for greyscale icons. */
+    private fun dominantColor(b: android.graphics.Bitmap): Int {
+        val w = b.width
+        val h = b.height
+        val px = IntArray(w * h)
+        b.getPixels(px, 0, w, 0, 0, w, h)
+        val hsv = FloatArray(3)
+        var r = 0.0; var g = 0.0; var bl = 0.0; var wt = 0.0
+        for (c in px) {
+            if (android.graphics.Color.alpha(c) < 200) continue
+            android.graphics.Color.colorToHSV(c, hsv)
+            val weight = (hsv[1] * hsv[2]).toDouble()
+            if (weight < 0.12) continue
+            r += android.graphics.Color.red(c) * weight
+            g += android.graphics.Color.green(c) * weight
+            bl += android.graphics.Color.blue(c) * weight
+            wt += weight
+        }
+        if (wt < 8.0) return 0xFF9FB4FF.toInt()
+        val out = android.graphics.Color.rgb((r / wt).toInt(), (g / wt).toInt(), (bl / wt).toInt())
+        android.graphics.Color.colorToHSV(out, hsv)
+        hsv[1] = hsv[1].coerceAtLeast(0.55f)
+        hsv[2] = hsv[2].coerceAtLeast(0.9f)
+        return android.graphics.Color.HSVToColor(hsv)
     }
 
     private fun monoIcon(d: Drawable): ImageBitmap? {
