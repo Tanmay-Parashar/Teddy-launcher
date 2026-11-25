@@ -889,13 +889,13 @@ fun SettingsPanel(vm: LauncherViewModel) {
         }
 
         SectionLabel("ICON STYLE")
-        ChipRow(listOf("ORIGINAL", "MONOCHROME"), if (vm.iconMono) 1 else 0) { vm.setIconMono(it == 1) }
+        ChipRow(listOf("ORIGINAL", "MONOCHROME"), if (vm.iconMono) 1 else 0) { vm.updateIconMono(it == 1) }
 
         SectionLabel("TEXT COLOR")
-        ChipRow(listOf("WHITE", "BLACK", "RED"), vm.clockColor) { vm.setClockColor(it) }
+        ChipRow(listOf("WHITE", "BLACK", "RED"), vm.clockColor) { vm.updateClockColor(it) }
 
         SectionLabel("WALLPAPER DIM")
-        ChipRow(listOf("OFF", "30", "50", "70"), vm.dimLevel) { vm.setDim(it) }
+        ChipRow(listOf("OFF", "30", "50", "70"), vm.dimLevel) { vm.updateDim(it) }
 
         SectionLabel("LOCK SCREEN")
         androidx.compose.material3.TextButton(onClick = {

@@ -79,17 +79,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun setIconMono(v: Boolean) {
+    fun updateIconMono(v: Boolean) {
         iconMono = v
         prefs.edit().putBoolean("icon_mono", v).apply()
     }
 
-    fun setClockColor(i: Int) {
+    fun updateClockColor(i: Int) {
         clockColor = i
         prefs.edit().putInt("clock_color", i).apply()
     }
 
-    fun setDim(i: Int) {
+    fun updateDim(i: Int) {
         dimLevel = i
         prefs.edit().putInt("dim", i).apply()
     }
