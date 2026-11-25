@@ -3,6 +3,7 @@ package app.monolith.launcher
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -31,6 +32,10 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.refresh()
+        val prefs = getSharedPreferences("teddy", MODE_PRIVATE)
+        if (prefs.getBoolean("lock_enabled", false) && Settings.canDrawOverlays(this)) {
+            startLockService(this)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

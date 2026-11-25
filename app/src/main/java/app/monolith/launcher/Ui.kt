@@ -111,7 +111,7 @@ private val MonoFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSatu
 
 // white, black, red
 private val ClockColors = listOf(Color.White, Color(0xFF0B0B0B), Color(0xFFFF5A5F))
-private val DimLevels = listOf(0f, 0.30f, 0.50f, 0.70f)
+internal val DimLevels = listOf(0f, 0.30f, 0.50f, 0.70f)
 
 // ---------------------------------------------------------------- helpers
 
@@ -170,7 +170,7 @@ fun rememberNow(): LocalDateTime {
     return now
 }
 
-private fun greeting(hour: Int): String = when (hour) {
+internal fun greeting(hour: Int): String = when (hour) {
     in 5..11 -> "Good morning"
     in 12..16 -> "Good afternoon"
     in 17..20 -> "Good evening"
@@ -481,6 +481,26 @@ fun AppDrawer(
                 .weight(1f)
                 .padding(horizontal = 40.dp)
         ) {
+            if (query.isBlank()) {
+                item(key = "lock_setup") {
+                    Text(
+                        text = "LOCK SCREEN SETUP",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                ctx.startActivity(Intent(ctx, LockSetupActivity::class.java))
+                                onLaunched()
+                            }
+                            .padding(vertical = 12.dp),
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 11.sp,
+                            letterSpacing = 2.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    )
+                }
+            }
             items(filtered, key = { it.pkg + "/" + it.cls }) { app ->
                 AppRow(app, vm, pinned = vm.dockPkgs.contains(app.pkg)) {
                     launchApp(ctx, app)
