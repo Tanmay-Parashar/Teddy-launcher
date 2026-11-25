@@ -416,70 +416,116 @@ fun GlowTile(app: AppItem, vm: LauncherViewModel, pinned: Boolean, size: Dp, onL
 fun ClockBlock(color: Color, shadow: Shadow, small: TextStyle, is24: Boolean) {
     val now = rememberNowSeconds()
     val tnum = "tnum"
+    val serif = androidx.compose.ui.text.font.FontFamily.Serif
+    val italic = androidx.compose.ui.text.font.FontStyle.Italic
+
     Text(
-        text = greeting(now.hour),
-        style = small.copy(fontSize = 11.sp, letterSpacing = 1.sp),
+        text = greeting(now.hour).lowercase(),
+        style = TextStyle(
+            color = color.copy(alpha = 0.55f),
+            fontFamily = serif,
+            fontStyle = italic,
+            fontSize = 15.sp,
+            shadow = shadow,
+        ),
     )
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(2.dp))
     Text(
-        text = now.format(DateTimeFormatter.ofPattern("EEEE")).uppercase(),
-        style = small.copy(fontSize = 12.sp, letterSpacing = 4.sp),
+        text = now.format(DateTimeFormatter.ofPattern("EEEE")),
+        style = TextStyle(
+            color = color.copy(alpha = 0.9f),
+            fontFamily = serif,
+            fontStyle = italic,
+            fontSize = 26.sp,
+            shadow = shadow,
+        ),
     )
     Row(verticalAlignment = Alignment.Bottom) {
         Text(
-            text = now.dayOfMonth.toString(),
+            text = now.dayOfMonth.toString().padStart(2, '0'),
             style = TextStyle(
                 color = color,
-                fontSize = 84.sp,
-                lineHeight = 88.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-2).sp,
+                fontSize = 132.sp,
+                lineHeight = 128.sp,
+                fontWeight = FontWeight.Thin,
+                letterSpacing = (-6).sp,
+                fontFeatureSettings = tnum,
                 shadow = shadow,
             ),
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
-            text = now.format(DateTimeFormatter.ofPattern("MMM")).uppercase(),
-            modifier = Modifier.padding(bottom = 18.dp),
+            text = now.format(DateTimeFormatter.ofPattern("MMMM")).lowercase(),
+            modifier = Modifier.padding(bottom = 22.dp),
             style = TextStyle(
                 color = color.copy(alpha = 0.7f),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Light,
-                letterSpacing = 5.sp,
+                fontFamily = serif,
+                fontStyle = italic,
+                fontSize = 22.sp,
                 shadow = shadow,
             ),
         )
     }
+    Spacer(Modifier.height(10.dp))
+    Box(
+        Modifier
+            .width(40.dp)
+            .height(1.dp)
+            .background(color.copy(alpha = 0.6f))
+    )
+    Spacer(Modifier.height(14.dp))
     Row(verticalAlignment = Alignment.Bottom) {
         Text(
-            text = now.format(DateTimeFormatter.ofPattern(if (is24) "HH:mm" else "hh:mm")),
+            text = now.format(DateTimeFormatter.ofPattern(if (is24) "HH:mm" else "h:mm")),
             style = TextStyle(
                 color = color,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Light,
-                letterSpacing = 2.sp,
+                fontSize = 40.sp,
+                fontWeight = FontWeight.ExtraLight,
+                letterSpacing = 3.sp,
                 fontFeatureSettings = tnum,
                 shadow = shadow,
             ),
         )
         Text(
             text = now.format(DateTimeFormatter.ofPattern(":ss")),
-            modifier = Modifier.padding(start = 2.dp, bottom = 5.dp),
+            modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
             style = TextStyle(
-                color = color.copy(alpha = 0.55f),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Light,
+                color = color.copy(alpha = 0.45f),
+                fontSize = 40.sp,
+                fontWeight = FontWeight.ExtraLight,
+                letterSpacing = 3.sp,
                 fontFeatureSettings = tnum,
                 shadow = shadow,
             ),
         )
         if (!is24) {
             Text(
-                text = now.format(DateTimeFormatter.ofPattern("a")).uppercase(),
-                modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
-                style = small.copy(fontSize = 11.sp, letterSpacing = 1.sp),
+                text = now.format(DateTimeFormatter.ofPattern("a")).lowercase(),
+                modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
+                style = TextStyle(
+                    color = color.copy(alpha = 0.6f),
+                    fontFamily = serif,
+                    fontStyle = italic,
+                    fontSize = 16.sp,
+                    shadow = shadow,
+                ),
             )
         }
+    }
+    Spacer(Modifier.height(10.dp))
+    val frac = (now.second + 1) / 60f
+    Box(
+        Modifier
+            .width(220.dp)
+            .height(1.dp)
+            .background(color.copy(alpha = 0.15f))
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(frac)
+                .height(1.dp)
+                .background(color.copy(alpha = 0.8f))
+        )
     }
     Spacer(Modifier.height(6.dp))
 }
