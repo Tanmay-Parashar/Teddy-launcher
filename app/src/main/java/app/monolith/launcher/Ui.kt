@@ -22,6 +22,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -349,14 +350,19 @@ fun HomeContent(
             )
         ) {
             ClockBlock(color = color, accent = if (vm.clockColor == 0) Color(vm.accent) else color, shadow = shadow, small = small, is24 = is24)
-            Text(text = "Battery ${battery.level}%", style = small)
         }
 
         Spacer(Modifier.weight(1f))
 
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 14.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .offset(x = (-10).dp)
+                .padding(bottom = 10.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color.White.copy(alpha = 0.10f))
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             apps.forEach { app -> GlowTile(app, vm, pinned = true, size = 52.dp) }
         }

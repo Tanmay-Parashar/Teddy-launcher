@@ -169,6 +169,29 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 val defaults = defaultDock().filter { p -> list.any { it.pkg == p } }
                 if (defaults.isNotEmpty()) dockPkgs = defaults
             }
+            if (prefs.getInt("dock_v", 0) < 2) {
+                var d = dockPkgs
+                if (d.size < 4) {
+                    val cands = listOfNotNull(
+                        resolvePkg(Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)),
+                        resolvePkg(Intent(MediaStore.ACTION_IMAGE_CAPTURE)),
+                    ) + listOf(
+                        "com.oplus.camera", "com.android.camera",
+                        "com.google.android.apps.photos", "com.coloros.gallery3d",
+                        "com.google.android.deskclock", "com.oplus.alarmclock",
+                        "com.android.settings",
+                    )
+                    for (c in cands.distinct()) {
+                        if (d.size >= 4) break
+                        if (c !in d && list.any { it.pkg == c }) d = d + c
+                    }
+                    if (d != dockPkgs) {
+                        dockPkgs = d
+                        saveDock()
+                    }
+                }
+                prefs.edit().putInt("dock_v", 2).apply()
+            }
             if (prefs.getString("home", null) == null && homePkgs.isEmpty()) {
                 val wanted = listOf(
                     "com.whatsapp", "com.google.android.youtube", "com.instagram.android",
