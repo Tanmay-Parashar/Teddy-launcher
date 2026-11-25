@@ -355,24 +355,10 @@ fun HomeContent(
         Spacer(Modifier.weight(1f))
 
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            Modifier.fillMaxWidth().padding(bottom = 14.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            apps.forEach { app ->
-                var menu by remember { mutableStateOf(false) }
-                Box {
-                    Box(
-                        Modifier
-                            .combinedClickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { launchApp(ctx, app) },
-                                onLongClick = { menu = true },
-                            )
-                    ) { AppGlyph(app, 52.dp, color, vm.iconMono) }
-                    AppMenu(menu, { menu = false }, app, vm, pinned = true)
-                }
-            }
+            apps.forEach { app -> GlowTile(app, vm, pinned = true, size = 52.dp) }
         }
     }
 }
@@ -506,19 +492,6 @@ fun ClockBlock(color: Color, accent: Color, shadow: Shadow, small: TextStyle, is
                 shadow = shadow,
             ),
         )
-        if (!is24) {
-            Text(
-                text = now.format(DateTimeFormatter.ofPattern("a")).lowercase(),
-                modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
-                style = TextStyle(
-                    color = color.copy(alpha = 0.6f),
-                    fontFamily = serif,
-                    fontStyle = italic,
-                    fontSize = 16.sp,
-                    shadow = shadow,
-                ),
-            )
-        }
     }
     Spacer(Modifier.height(10.dp))
     val frac = (now.second + 1) / 60f

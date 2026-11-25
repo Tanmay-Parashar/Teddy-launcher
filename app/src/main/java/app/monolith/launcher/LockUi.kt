@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.res.Configuration
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,7 +72,14 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = dim))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.4f),
+                    0.38f to Color.Transparent,
+                    0.72f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.5f),
+                )
+            )
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { d -> drag = (drag + d).coerceAtMost(0f) },
@@ -94,16 +103,54 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
                 LockPortrait(now, is24, battery, showText, onOpen)
             }
         }
-        Text(
-            text = "SWIPE UP TO UNLOCK",
-            modifier = Modifier
+        UnlockHandle(
+            Modifier
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(bottom = 14.dp),
+                .padding(bottom = 22.dp),
+        )
+    }
+}
+
+@Composable
+private fun UnlockHandle(modifier: Modifier) {
+    val accent = Color(rememberWallpaperAccent())
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "h")
+    val bob by t.animateFloat(
+        initialValue = 0f,
+        targetValue = -5f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "bob",
+    )
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .graphicsLayer { translationY = bob.dp.toPx() }
+                .drawBehind {
+                    for (i in 3 downTo 1) {
+                        val g = i * 3.dp.toPx()
+                        drawRoundRect(
+                            color = accent.copy(alpha = 0.10f * (4 - i)),
+                            topLeft = Offset(-g, -g),
+                            size = Size(size.width + g * 2, size.height + g * 2),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2 + g),
+                        )
+                    }
+                }
+                .size(width = 46.dp, height = 5.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White)
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "SWIPE UP",
             style = TextStyle(
-                color = Color.White.copy(alpha = 0.45f),
+                color = Color.White.copy(alpha = 0.65f),
                 fontSize = 10.sp,
-                letterSpacing = 2.sp,
+                letterSpacing = 3.sp,
                 fontWeight = FontWeight.Medium,
             ),
         )
@@ -111,55 +158,131 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
 }
 
 @Composable
+fun rememberWallpaperAccent(): Int {
+    val ctx = LocalContext.current
+    return remember {
+        var out = 0xFFFAC775.toInt()
+        if (android.os.Build.VERSION.SDK_INT >= 27) runCatching {
+            val wm = android.app.WallpaperManager.getInstance(ctx)
+            val c = wm.getWallpaperColors(android.app.WallpaperManager.FLAG_SYSTEM)
+            if (c != null) {
+                val hsv = FloatArray(3)
+                android.graphics.Color.colorToHSV(c.primaryColor.toArgb(), hsv)
+                hsv[1] = hsv[1].coerceIn(0.35f, 0.85f)
+                hsv[2] = 1f
+                out = android.graphics.Color.HSVToColor(hsv)
+            }
+        }
+        out
+    }
+}
+
+@Composable
 private fun LockPortrait(
-    now: LocalDateTime,
+    @Suppress("UNUSED_PARAMETER") nowMinute: LocalDateTime,
     is24: Boolean,
-    battery: Battery,
+    @Suppress("UNUSED_PARAMETER") battery: Battery,
     showText: Boolean,
     onOpen: (PendingIntent?) -> Unit,
 ) {
-    val shadow = Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, 2f), 12f)
-    val small = TextStyle(
-        color = Color.White.copy(alpha = 0.85f),
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.6.sp,
-        shadow = shadow,
-    )
+    val now = rememberNowSeconds()
+    val accent = Color(rememberWallpaperAccent())
+    val shadow = Shadow(Color.Black.copy(alpha = 0.4f), Offset(0f, 2f), 12f)
+    val serif = androidx.compose.ui.text.font.FontFamily.Serif
+    val italic = androidx.compose.ui.text.font.FontStyle.Italic
+    val tnum = "tnum"
+    val sec = now.second
+    val hh = now.format(DateTimeFormatter.ofPattern(if (is24) "HH" else "hh"))
+    val mm = now.format(DateTimeFormatter.ofPattern("mm"))
+
     Column(
         Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.systemBars)
-            .padding(start = 44.dp, top = 40.dp, end = 28.dp, bottom = 44.dp)
+            .padding(top = 56.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text = greeting(now.hour), style = small.copy(fontSize = 11.sp, letterSpacing = 1.sp))
         Text(
-            text = now.dayOfMonth.toString(),
+            text = now.format(DateTimeFormatter.ofPattern("EEEE")),
             style = TextStyle(
-                color = Color.White,
-                fontSize = 116.sp,
-                lineHeight = 120.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-2).sp,
+                color = Color.White.copy(alpha = 0.92f),
+                fontFamily = serif,
+                fontStyle = italic,
+                fontSize = 20.sp,
                 shadow = shadow,
             ),
         )
-        Text(
-            text = now.format(DateTimeFormatter.ofPattern(if (is24) "HH:mm" else "hh:mm a")),
-            style = small,
-        )
-        Text(text = "Battery ${battery.level}%", style = small)
-        Text(text = now.format(DateTimeFormatter.ofPattern("EEE, d MMM")), style = small)
-
-        Spacer(Modifier.height(28.dp))
-
-        LockState.media?.let {
-            MediaCard(it)
-            Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
+        Box(Modifier.size(240.dp), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.fillMaxSize()) {
+                val c = center
+                for (i in 0 until 60) {
+                    val a = (i / 60f) * 2f * Math.PI.toFloat() - Math.PI.toFloat() / 2f
+                    val major = i % 5 == 0
+                    val r1 = (if (major) 100f else 106f) * density
+                    val r2 = 116f * density
+                    val col = when {
+                        i < sec -> accent.copy(alpha = 0.9f)
+                        i == sec -> Color.White
+                        else -> Color.White.copy(alpha = 0.28f)
+                    }
+                    drawLine(
+                        color = col,
+                        start = Offset(c.x + kotlin.math.cos(a) * r1, c.y + kotlin.math.sin(a) * r1),
+                        end = Offset(c.x + kotlin.math.cos(a) * r2, c.y + kotlin.math.sin(a) * r2),
+                        strokeWidth = (if (major) 2f else 1.4f) * density,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = hh,
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 78.sp,
+                        lineHeight = 68.sp,
+                        fontWeight = FontWeight.Thin,
+                        letterSpacing = (-2).sp,
+                        fontFeatureSettings = tnum,
+                        shadow = shadow,
+                    ),
+                )
+                Text(
+                    text = mm,
+                    style = TextStyle(
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 78.sp,
+                        lineHeight = 76.sp,
+                        fontWeight = FontWeight.Thin,
+                        letterSpacing = (-2).sp,
+                        fontFeatureSettings = tnum,
+                        shadow = shadow,
+                    ),
+                )
+            }
         }
-        LockState.notifications.take(4).forEach { n ->
-            NotifRow(n, showText) { onOpen(n.intent) }
-            Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = now.dayOfMonth.toString() + " " + now.format(DateTimeFormatter.ofPattern("MMMM")).lowercase(),
+            style = TextStyle(
+                color = Color.White.copy(alpha = 0.8f),
+                fontFamily = serif,
+                fontStyle = italic,
+                fontSize = 17.sp,
+                shadow = shadow,
+            ),
+        )
+        Spacer(Modifier.height(24.dp))
+        Column(Modifier.padding(horizontal = 32.dp)) {
+            LockState.media?.let {
+                MediaCard(it)
+                Spacer(Modifier.height(16.dp))
+            }
+            LockState.notifications.take(4).forEach { n ->
+                NotifRow(n, showText) { onOpen(n.intent) }
+                Spacer(Modifier.height(8.dp))
+            }
         }
     }
 }
