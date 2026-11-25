@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.Image
@@ -128,7 +129,7 @@ private fun UnlockHandle(modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
-                .graphicsLayer { translationY = bob.dp.toPx() }
+                .graphicsLayer { translationY = bob * density }
                 .drawBehind {
                     for (i in 3 downTo 1) {
                         val g = i * 3.dp.toPx()
