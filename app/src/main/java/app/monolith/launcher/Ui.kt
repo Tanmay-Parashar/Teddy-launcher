@@ -22,6 +22,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -339,30 +344,27 @@ fun HomeContent(
             Text(text = "Battery ${battery.level}%", style = small)
         }
 
-        Spacer(Modifier.height(20.dp))
-        SearchRing(color = color, onClick = onSearch)
-
         Spacer(Modifier.weight(1f))
 
-        val homeApps = vm.homePkgs.mapNotNull { p -> vm.apps.firstOrNull { it.pkg == p } }
-        Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            homeApps.chunked(4).forEach { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    row.forEach { app -> GlowTile(app, vm, pinned = true, size = 56.dp) }
-                    repeat(4 - row.size) { Spacer(Modifier.size(56.dp)) }
-                }
-            }
-        }
-        Spacer(Modifier.height(26.dp))
         Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(26.dp))
-                .background(Color.White.copy(alpha = 0.08f))
-                .padding(vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            apps.forEach { app -> GlowTile(app, vm, pinned = true, size = 52.dp) }
+            apps.forEach { app ->
+                var menu by remember { mutableStateOf(false) }
+                Box {
+                    Box(
+                        Modifier
+                            .combinedClickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { launchApp(ctx, app) },
+                                onLongClick = { menu = true },
+                            )
+                    ) { AppGlyph(app, 52.dp, color, vm.iconMono) }
+                    AppMenu(menu, { menu = false }, app, vm, pinned = true)
+                }
+            }
         }
     }
 }
@@ -370,7 +372,7 @@ fun HomeContent(
 /** White rounded tile, colour icon, coloured layered-stroke glow (no blur: cheap to draw). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun GlowTile(app: AppItem, vm: LauncherViewModel, pinned: Boolean, size: Dp) {
+fun GlowTile(app: AppItem, vm: LauncherViewModel, pinned: Boolean, size: Dp, onLaunched: () -> Unit = {}) {
     val ctx = LocalContext.current
     var menu by remember { mutableStateOf(false) }
     val glow = remember(app.glow) { Color(app.glow) }
@@ -395,7 +397,7 @@ fun GlowTile(app: AppItem, vm: LauncherViewModel, pinned: Boolean, size: Dp) {
                 .background(Color.White)
                 .border(1.6.dp, glow, shape)
                 .combinedClickable(
-                    onClick = { launchApp(ctx, app) },
+                    onClick = { launchApp(ctx, app); onLaunched() },
                     onLongClick = { menu = true },
                 ),
             contentAlignment = Alignment.Center,
@@ -540,7 +542,7 @@ fun SearchRing(color: Color, onClick: () -> Unit) {
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
         drawIntoCanvas { c ->
-            c.nativeCanvas.drawTextOnPath("FIND ANYTHING YOU WANT", path, 6.dp.toPx(), 0f, paint)
+            c.nativeCanvas.drawTextOnPath("SEARCH", path, 6.dp.toPx(), 0f, paint)
         }
     }
 }
@@ -598,13 +600,17 @@ fun AppDrawer(
                     .background(Color.White.copy(alpha = 0.35f))
             )
         }
-        LazyColumn(
-            Modifier
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(4),
+            modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 40.dp)
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(26.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            contentPadding = PaddingValues(top = 10.dp, bottom = 20.dp),
         ) {
             if (query.isBlank()) {
-                item(key = "settings") {
+                item(key = "settings", span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "SETTINGS",
                         modifier = Modifier
@@ -613,7 +619,7 @@ fun AppDrawer(
                                 vm.openSettings()
                                 onLaunched()
                             }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 8.dp),
                         style = TextStyle(
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 11.sp,
@@ -624,9 +630,8 @@ fun AppDrawer(
                 }
             }
             items(filtered, key = { it.pkg + "/" + it.cls }) { app ->
-                AppRow(app, vm, pinned = vm.dockPkgs.contains(app.pkg)) {
-                    launchApp(ctx, app)
-                    onLaunched()
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    GlowTile(app, vm, pinned = vm.dockPkgs.contains(app.pkg), size = 56.dp, onLaunched = onLaunched)
                 }
             }
         }
@@ -718,14 +723,10 @@ fun AppMenu(
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         if (pinned) {
             DropdownMenuItem(
-                text = { Text("Remove from home") },
+                text = { Text("Remove from dock") },
                 onClick = { vm.unpin(app.pkg); onDismiss() },
             )
         } else {
-            DropdownMenuItem(
-                text = { Text("Add to home") },
-                onClick = { vm.addHome(app.pkg); onDismiss() },
-            )
             DropdownMenuItem(
                 text = { Text("Add to dock") },
                 onClick = { vm.pin(app.pkg); onDismiss() },
