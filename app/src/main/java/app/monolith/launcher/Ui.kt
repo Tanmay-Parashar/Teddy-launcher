@@ -174,6 +174,18 @@ fun rememberNow(): LocalDateTime {
     return now
 }
 
+@Composable
+fun rememberNowSeconds(): LocalDateTime {
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = LocalDateTime.now()
+            delay(1_000L - (System.currentTimeMillis() % 1_000L) + 5L)
+        }
+    }
+    return now
+}
+
 internal fun greeting(hour: Int): String = when (hour) {
     in 5..11 -> "Good morning"
     in 12..16 -> "Good afternoon"
@@ -286,7 +298,6 @@ fun HomeContent(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
-    val now = rememberNow()
     val is24 = DateFormat.is24HourFormat(ctx)
     val color = ClockColors[vm.clockColor % ClockColors.size]
     val shadow = Shadow(
@@ -322,27 +333,8 @@ fun HomeContent(
                 onLongClick = { vm.cycleClockColor() },
             )
         ) {
-            Text(
-                text = greeting(now.hour),
-                style = small.copy(fontSize = 11.sp, letterSpacing = 1.sp),
-            )
-            Text(
-                text = now.dayOfMonth.toString(),
-                style = TextStyle(
-                    color = color,
-                    fontSize = 116.sp,
-                    lineHeight = 120.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-2).sp,
-                    shadow = shadow,
-                ),
-            )
-            Text(
-                text = now.format(DateTimeFormatter.ofPattern(if (is24) "HH:mm" else "hh:mm a")),
-                style = small,
-            )
+            ClockBlock(color = color, shadow = shadow, small = small, is24 = is24)
             Text(text = "Battery ${battery.level}%", style = small)
-            Text(text = now.format(DateTimeFormatter.ofPattern("EEE, d MMM")), style = small)
         }
 
         Spacer(Modifier.height(20.dp))
@@ -382,6 +374,78 @@ fun HomeContent(
             }
         }
     }
+}
+
+@Composable
+fun ClockBlock(color: Color, shadow: Shadow, small: TextStyle, is24: Boolean) {
+    val now = rememberNowSeconds()
+    val tnum = "tnum"
+    Text(
+        text = greeting(now.hour),
+        style = small.copy(fontSize = 11.sp, letterSpacing = 1.sp),
+    )
+    Spacer(Modifier.height(10.dp))
+    Text(
+        text = now.format(DateTimeFormatter.ofPattern("EEEE")).uppercase(),
+        style = small.copy(fontSize = 12.sp, letterSpacing = 4.sp),
+    )
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = now.dayOfMonth.toString(),
+            style = TextStyle(
+                color = color,
+                fontSize = 84.sp,
+                lineHeight = 88.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-2).sp,
+                shadow = shadow,
+            ),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = now.format(DateTimeFormatter.ofPattern("MMM")).uppercase(),
+            modifier = Modifier.padding(bottom = 18.dp),
+            style = TextStyle(
+                color = color.copy(alpha = 0.7f),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Light,
+                letterSpacing = 5.sp,
+                shadow = shadow,
+            ),
+        )
+    }
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = now.format(DateTimeFormatter.ofPattern(if (is24) "HH:mm" else "hh:mm")),
+            style = TextStyle(
+                color = color,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Light,
+                letterSpacing = 2.sp,
+                fontFeatureSettings = tnum,
+                shadow = shadow,
+            ),
+        )
+        Text(
+            text = now.format(DateTimeFormatter.ofPattern(":ss")),
+            modifier = Modifier.padding(start = 2.dp, bottom = 5.dp),
+            style = TextStyle(
+                color = color.copy(alpha = 0.55f),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Light,
+                fontFeatureSettings = tnum,
+                shadow = shadow,
+            ),
+        )
+        if (!is24) {
+            Text(
+                text = now.format(DateTimeFormatter.ofPattern("a")).uppercase(),
+                modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                style = small.copy(fontSize = 11.sp, letterSpacing = 1.sp),
+            )
+        }
+    }
+    Spacer(Modifier.height(6.dp))
 }
 
 @Composable
