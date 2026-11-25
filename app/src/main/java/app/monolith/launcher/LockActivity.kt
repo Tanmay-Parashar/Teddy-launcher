@@ -29,6 +29,7 @@ class LockActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LockDiag.mark(this, "shown")
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true)
         } else {
@@ -54,6 +55,11 @@ class LockActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        LockDiag.mark(this, "shown")
     }
 
     private fun unlock(after: PendingIntent?) {

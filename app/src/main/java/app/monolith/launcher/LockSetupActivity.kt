@@ -126,6 +126,15 @@ private fun SetupScreen(tick: Int) {
         }
 
         Spacer(Modifier.height(12.dp))
+        val dim = TextStyle(color = Color.White.copy(alpha = 0.55f), fontSize = 12.sp)
+        Text("STATUS", style = TextStyle(color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, letterSpacing = 2.sp))
+        val running = remember(tick) { LockService.running }
+        Text("Service: " + if (running) "running" else "not running", style = dim)
+        Text("Screen-off last seen: " + remember(tick) { LockDiag.read(ctx, "off") }, style = dim)
+        Text("Launch attempted: " + remember(tick) { LockDiag.read(ctx, "try") }, style = dim)
+        Text("Lock screen last shown: " + remember(tick) { LockDiag.read(ctx, "shown") }, style = dim)
+
+        Spacer(Modifier.height(12.dp))
         TextButton(onClick = { ctx.startActivity(Intent(ctx, LockActivity::class.java)) }) {
             Text("PREVIEW LOCK SCREEN", color = Color.White, letterSpacing = 2.sp, fontSize = 12.sp)
         }

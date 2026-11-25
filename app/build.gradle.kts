@@ -16,9 +16,24 @@ android {
         versionName = "0.1"
     }
 
+    signingConfigs {
+        create("teddy") {
+            storeFile = rootProject.file("keystore/teddy.jks")
+            storePassword = "teddy-launcher"
+            keyAlias = "teddy"
+            keyPassword = "teddy-launcher"
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("teddy")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("teddy")
         }
     }
 

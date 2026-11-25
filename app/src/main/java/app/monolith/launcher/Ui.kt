@@ -16,8 +16,7 @@ import android.provider.Settings
 import android.text.format.DateFormat
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
@@ -31,6 +30,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +47,8 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -61,6 +63,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -104,6 +107,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -196,16 +200,25 @@ fun HomeAndDrawer(vm: LauncherViewModel, battery: Battery) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val view = LocalView.current
-    val progress = remember { Animatable(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    val animJob = remember { mutableStateOf<Job?>(null) }
     var focusSearch by remember { mutableStateOf(false) }
     val dragRangePx = with(density) { (config.screenHeightDp * 0.55f).dp.toPx() }
-    val drawerVisible by remember { derivedStateOf { progress.value > 0.001f } }
+    val drawerVisible by remember { derivedStateOf { progress > 0.001f } }
     val settle = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
 
-    BackHandler(enabled = drawerVisible) {
-        scope.launch { progress.animateTo(0f, settle) }
+    fun go(target: Float) {
+        animJob.value?.cancel()
+        animJob.value = scope.launch {
+            animate(progress, target, animationSpec = settle) { v, _ -> progress = v }
+        }
     }
-    LaunchedEffect(vm.homeSignal) { progress.animateTo(0f, settle) }
+
+    // Back never leaves the launcher
+    BackHandler(enabled = true) { }
+    BackHandler(enabled = vm.showSettings) { vm.closeSettings() }
+    BackHandler(enabled = drawerVisible && !vm.showSettings) { go(0f) }
+    LaunchedEffect(vm.homeSignal) { go(0f) }
     LaunchedEffect(drawerVisible) { if (!drawerVisible) focusSearch = false }
 
     SideEffect {
@@ -223,17 +236,16 @@ fun HomeAndDrawer(vm: LauncherViewModel, battery: Battery) {
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { d ->
-                    scope.launch {
-                        progress.snapTo((progress.value - d / dragRangePx).coerceIn(0f, 1f))
-                    }
+                    progress = (progress - d / dragRangePx).coerceIn(0f, 1f)
                 },
+                onDragStarted = { animJob.value?.cancel() },
                 onDragStopped = { v ->
                     val target = when {
                         v < -700f -> 1f
                         v > 700f -> 0f
-                        else -> if (progress.value > 0.4f) 1f else 0f
+                        else -> if (progress > 0.4f) 1f else 0f
                     }
-                    progress.animateTo(target, settle)
+                    go(target)
                 },
             )
     ) {
@@ -242,17 +254,23 @@ fun HomeAndDrawer(vm: LauncherViewModel, battery: Battery) {
             battery = battery,
             onSearch = {
                 focusSearch = true
-                scope.launch { progress.animateTo(1f, settle) }
+                go(1f)
             },
             modifier = Modifier.graphicsLayer {
-                alpha = (1f - progress.value * 1.5f).coerceIn(0f, 1f)
-                val s = 1f - 0.05f * progress.value
+                alpha = (1f - progress * 1.5f).coerceIn(0f, 1f)
+                val s = 1f - 0.05f * progress
                 scaleX = s
                 scaleY = s
             },
         )
         if (drawerVisible) {
-            AppDrawer(vm, progress, focusSearch) { scope.launch { progress.snapTo(0f) } }
+            AppDrawer(vm, { progress }, focusSearch) {
+                animJob.value?.cancel()
+                progress = 0f
+            }
+        }
+        if (vm.showSettings) {
+            SettingsPanel(vm)
         }
     }
 }
@@ -332,7 +350,7 @@ fun HomeContent(
 
         Spacer(Modifier.weight(1f))
 
-        Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             apps.forEach { app ->
                 var menu by remember { mutableStateOf(false) }
                 Box {
@@ -345,7 +363,7 @@ fun HomeContent(
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        AppGlyph(app, 34.dp, color)
+                        AppGlyph(app, 34.dp, color, vm.iconMono)
                         Spacer(Modifier.width(16.dp))
                         Text(
                             text = app.label,
@@ -367,9 +385,15 @@ fun HomeContent(
 }
 
 @Composable
-fun AppGlyph(app: AppItem, size: Dp, tint: Color = Color.White) {
+fun AppGlyph(app: AppItem, size: Dp, tint: Color = Color.White, mono: Boolean = false) {
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {
-        if (app.mono != null) {
+        if (!mono) {
+            Image(
+                bitmap = app.icon,
+                contentDescription = null,
+                modifier = Modifier.size(size),
+            )
+        } else if (app.mono != null) {
             Image(
                 bitmap = app.mono,
                 contentDescription = null,
@@ -429,7 +453,7 @@ fun SearchRing(color: Color, onClick: () -> Unit) {
 @Composable
 fun AppDrawer(
     vm: LauncherViewModel,
-    progress: Animatable<Float, AnimationVector1D>,
+    progress: () -> Float,
     autoFocus: Boolean,
     onLaunched: () -> Unit,
 ) {
@@ -451,8 +475,8 @@ fun AppDrawer(
         Modifier
             .fillMaxSize()
             .graphicsLayer {
-                alpha = progress.value
-                translationY = (1f - progress.value) * 120f
+                alpha = progress()
+                translationY = (1f - progress()) * 120f
             }
             .background(Color(0xFF0A0D12).copy(alpha = 0.88f))
             .clickable(
@@ -482,13 +506,13 @@ fun AppDrawer(
                 .padding(horizontal = 40.dp)
         ) {
             if (query.isBlank()) {
-                item(key = "lock_setup") {
+                item(key = "settings") {
                     Text(
-                        text = "LOCK SCREEN SETUP",
+                        text = "SETTINGS",
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                ctx.startActivity(Intent(ctx, LockSetupActivity::class.java))
+                                vm.openSettings()
                                 onLaunched()
                             }
                             .padding(vertical = 12.dp),
@@ -567,7 +591,7 @@ fun AppRow(app: AppItem, vm: LauncherViewModel, pinned: Boolean, onClick: () -> 
                 .padding(vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AppGlyph(app, 34.dp)
+            AppGlyph(app, 34.dp, Color.White, vm.iconMono)
             Spacer(Modifier.width(18.dp))
             Text(
                 text = app.label,
@@ -773,6 +797,123 @@ fun DialClock(
             nc.drawText(dateLine, dx, cy - 6.dp.toPx(), smallPaint)
             nc.drawText(dayLine, dx, cy + 14.dp.toPx(), smallPaint)
             nc.drawText("$batteryLevel%", dx, cy + 40.dp.toPx(), smallPaint)
+        }
+    }
+}
+
+
+// ---------------------------------------------------------------- settings / first run
+
+@Composable
+private fun SectionLabel(text: String) {
+    Spacer(Modifier.height(14.dp))
+    Text(
+        text,
+        style = TextStyle(
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 11.sp,
+            letterSpacing = 2.sp,
+            fontWeight = FontWeight.Medium,
+        ),
+    )
+}
+
+@Composable
+private fun ChipRow(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        labels.forEachIndexed { i, label ->
+            val sel = i == selected
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (sel) Color.White else Color.White.copy(alpha = 0.10f))
+                    .clickable { onSelect(i) }
+                    .padding(horizontal = 16.dp, vertical = 9.dp)
+            ) {
+                Text(
+                    label,
+                    style = TextStyle(
+                        color = if (sel) Color.Black else Color.White,
+                        fontSize = 12.sp,
+                        letterSpacing = 1.5.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsPanel(vm: LauncherViewModel) {
+    val ctx = LocalContext.current
+    val first = !vm.onboarded
+    val isHome = remember(vm.resumeTick) { isDefaultHome(ctx) }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0D12).copy(alpha = 0.82f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+            )
+            .windowInsetsPadding(WindowInsets.systemBars)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 28.dp, vertical = 24.dp)
+    ) {
+        Text(
+            if (first) "WELCOME" else "SETTINGS",
+            style = TextStyle(color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Light, letterSpacing = 3.sp),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (first) "Pick how it looks. You can change all of this later from the app drawer (SETTINGS)."
+            else "Changes apply instantly behind this panel.",
+            style = TextStyle(color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp),
+        )
+
+        SectionLabel("HOME APP")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (isHome) "Teddy's Launcher is your home app." else "Not your home app yet, so Back closes it.",
+                modifier = Modifier.weight(1f),
+                style = TextStyle(color = Color.White, fontSize = 14.sp),
+            )
+            if (!isHome) {
+                androidx.compose.material3.TextButton(onClick = {
+                    runCatching { ctx.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
+                }) { Text("SET", color = Color.White, letterSpacing = 2.sp, fontSize = 12.sp) }
+            }
+        }
+
+        SectionLabel("ICON STYLE")
+        ChipRow(listOf("ORIGINAL", "MONOCHROME"), if (vm.iconMono) 1 else 0) { vm.setIconMono(it == 1) }
+
+        SectionLabel("TEXT COLOR")
+        ChipRow(listOf("WHITE", "BLACK", "RED"), vm.clockColor) { vm.setClockColor(it) }
+
+        SectionLabel("WALLPAPER DIM")
+        ChipRow(listOf("OFF", "30", "50", "70"), vm.dimLevel) { vm.setDim(it) }
+
+        SectionLabel("LOCK SCREEN")
+        androidx.compose.material3.TextButton(onClick = {
+            ctx.startActivity(Intent(ctx, LockSetupActivity::class.java))
+        }) { Text("LOCK SCREEN SETUP", color = Color.White, letterSpacing = 2.sp, fontSize = 12.sp) }
+
+        Spacer(Modifier.height(18.dp))
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color.White)
+                .clickable { vm.closeSettings() }
+                .padding(horizontal = 36.dp, vertical = 12.dp)
+        ) {
+            Text(
+                if (first) "START" else "DONE",
+                style = TextStyle(color = Color.Black, fontSize = 13.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Medium),
+            )
         }
     }
 }

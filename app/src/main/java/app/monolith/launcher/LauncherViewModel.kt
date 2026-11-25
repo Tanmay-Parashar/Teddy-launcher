@@ -51,6 +51,49 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var dimLevel by mutableIntStateOf(prefs.getInt("dim", 2))
         private set
 
+    var iconMono by mutableStateOf(prefs.getBoolean("icon_mono", false))
+        private set
+
+    var onboarded by mutableStateOf(prefs.getBoolean("onboarded", false))
+        private set
+
+    var showSettings by mutableStateOf(!prefs.getBoolean("onboarded", false))
+        private set
+
+    var resumeTick by mutableIntStateOf(0)
+        private set
+
+    fun onResume() {
+        resumeTick++
+    }
+
+    fun openSettings() {
+        showSettings = true
+    }
+
+    fun closeSettings() {
+        showSettings = false
+        if (!onboarded) {
+            onboarded = true
+            prefs.edit().putBoolean("onboarded", true).apply()
+        }
+    }
+
+    fun setIconMono(v: Boolean) {
+        iconMono = v
+        prefs.edit().putBoolean("icon_mono", v).apply()
+    }
+
+    fun setClockColor(i: Int) {
+        clockColor = i
+        prefs.edit().putInt("clock_color", i).apply()
+    }
+
+    fun setDim(i: Int) {
+        dimLevel = i
+        prefs.edit().putInt("dim", i).apply()
+    }
+
     fun cycleDim() {
         dimLevel = (dimLevel + 1) % 4
         prefs.edit().putInt("dim", dimLevel).apply()
@@ -139,4 +182,10 @@ fun launchApp(ctx: Context, app: AppItem) {
         .setClassName(app.pkg, app.cls)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
     runCatching { ctx.startActivity(i) }
+}
+
+fun isDefaultHome(ctx: Context): Boolean {
+    val i = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+    val ri = ctx.packageManager.resolveActivity(i, PackageManager.MATCH_DEFAULT_ONLY)
+    return ri?.activityInfo?.packageName == ctx.packageName
 }
