@@ -333,10 +333,7 @@ fun HomeContent(
         modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = { vm.cycleDim() },
-                    onDoubleTap = { lockScreenNow(ctx) },
-                )
+                detectTapGestures(onLongPress = { vm.cycleDim() })
             }
             .windowInsetsPadding(WindowInsets.systemBars)
             .padding(start = 44.dp, top = 28.dp, end = 24.dp, bottom = 20.dp)
