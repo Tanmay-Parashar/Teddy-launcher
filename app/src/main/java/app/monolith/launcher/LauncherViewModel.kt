@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -54,7 +55,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private set
 
     /** index into the dim levels used by the UI (0 = none) */
-    var dimLevel by mutableIntStateOf(prefs.getInt("dim", 2))
+    var dimLevel by mutableIntStateOf(prefs.getInt("dim", 0))
         private set
 
     var iconMono by mutableStateOf(prefs.getBoolean("icon_mono", false))
@@ -69,8 +70,26 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var resumeTick by mutableIntStateOf(0)
         private set
 
+    var accent by mutableIntStateOf(0xFFFFFFFF.toInt())
+        private set
+
     fun onResume() {
         resumeTick++
+        refreshAccent()
+    }
+
+    fun refreshAccent() {
+        if (Build.VERSION.SDK_INT < 27) return
+        runCatching {
+            val wm = android.app.WallpaperManager.getInstance(getApplication())
+            val c = wm.getWallpaperColors(android.app.WallpaperManager.FLAG_SYSTEM) ?: return
+            val base = (c.primaryColor.toArgb())
+            val hsv = FloatArray(3)
+            android.graphics.Color.colorToHSV(base, hsv)
+            hsv[1] = hsv[1].coerceIn(0.35f, 0.85f)
+            hsv[2] = 1f
+            accent = android.graphics.Color.HSVToColor(hsv)
+        }
     }
 
     fun openSettings() {

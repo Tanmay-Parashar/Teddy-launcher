@@ -252,6 +252,14 @@ fun HomeAndDrawer(vm: LauncherViewModel, battery: Battery) {
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = DimLevels[vm.dimLevel % DimLevels.size]))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.45f),
+                    0.45f to Color.Transparent,
+                    0.75f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.4f),
+                )
+            )
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { d ->
@@ -325,7 +333,10 @@ fun HomeContent(
         modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { vm.cycleDim() })
+                detectTapGestures(
+                    onLongPress = { vm.cycleDim() },
+                    onDoubleTap = { lockScreenNow(ctx) },
+                )
             }
             .windowInsetsPadding(WindowInsets.systemBars)
             .padding(start = 44.dp, top = 28.dp, end = 24.dp, bottom = 20.dp)
@@ -340,7 +351,7 @@ fun HomeContent(
                 onLongClick = { vm.cycleClockColor() },
             )
         ) {
-            ClockBlock(color = color, shadow = shadow, small = small, is24 = is24)
+            ClockBlock(color = color, accent = if (vm.clockColor == 0) Color(vm.accent) else color, shadow = shadow, small = small, is24 = is24)
             Text(text = "Battery ${battery.level}%", style = small)
         }
 
@@ -413,7 +424,7 @@ fun GlowTile(app: AppItem, vm: LauncherViewModel, pinned: Boolean, size: Dp, onL
 }
 
 @Composable
-fun ClockBlock(color: Color, shadow: Shadow, small: TextStyle, is24: Boolean) {
+fun ClockBlock(color: Color, accent: Color, shadow: Shadow, small: TextStyle, is24: Boolean) {
     val now = rememberNowSeconds()
     val tnum = "tnum"
     val serif = androidx.compose.ui.text.font.FontFamily.Serif
@@ -471,7 +482,7 @@ fun ClockBlock(color: Color, shadow: Shadow, small: TextStyle, is24: Boolean) {
         Modifier
             .width(40.dp)
             .height(1.dp)
-            .background(color.copy(alpha = 0.6f))
+            .background(accent)
     )
     Spacer(Modifier.height(14.dp))
     Row(verticalAlignment = Alignment.Bottom) {
@@ -490,7 +501,7 @@ fun ClockBlock(color: Color, shadow: Shadow, small: TextStyle, is24: Boolean) {
             text = now.format(DateTimeFormatter.ofPattern(":ss")),
             modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
             style = TextStyle(
-                color = color.copy(alpha = 0.45f),
+                color = accent,
                 fontSize = 40.sp,
                 fontWeight = FontWeight.ExtraLight,
                 letterSpacing = 3.sp,
@@ -524,7 +535,7 @@ fun ClockBlock(color: Color, shadow: Shadow, small: TextStyle, is24: Boolean) {
             Modifier
                 .fillMaxWidth(frac)
                 .height(1.dp)
-                .background(color.copy(alpha = 0.8f))
+                .background(accent)
         )
     }
     Spacer(Modifier.height(6.dp))
@@ -624,7 +635,7 @@ fun AppDrawer(
                 alpha = progress()
                 translationY = (1f - progress()) * 120f
             }
-            .background(Color(0xFF0A0D12).copy(alpha = 0.88f))
+            .background(Color(0xFF0A0D12).copy(alpha = 0.55f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
