@@ -45,7 +45,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationManagerCompat
 
 class LockSetupActivity : ComponentActivity() {
 
@@ -76,16 +75,12 @@ private val Bg = Color(0xFF0A0D12)
 private fun SetupScreen(tick: Int) {
     val ctx = LocalContext.current
     val prefs = remember { ctx.getSharedPreferences("teddy", Context.MODE_PRIVATE) }
-    val listenerOk = remember(tick) {
-        NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName)
-    }
     val overlayOk = remember(tick) { Settings.canDrawOverlays(ctx) }
     val batteryOk = remember(tick) {
         (ctx.getSystemService(Context.POWER_SERVICE) as PowerManager)
             .isIgnoringBatteryOptimizations(ctx.packageName)
     }
     var enabled by remember { mutableStateOf(prefs.getBoolean("lock_enabled", false)) }
-    var showText by remember { mutableStateOf(prefs.getBoolean("show_text", false)) }
     val pkgUri = Uri.parse("package:${ctx.packageName}")
 
     Column(
@@ -102,28 +97,21 @@ private fun SetupScreen(tick: Int) {
             style = TextStyle(color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Light, letterSpacing = 3.sp),
         )
         Text(
-            "Shows the clock, notifications and media over your normal lock screen. " +
+            "Shows the clock over your normal lock screen. " +
                 "Your PIN or fingerprint still protects the phone.",
             style = TextStyle(color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp),
         )
         Spacer(Modifier.height(16.dp))
 
         StepRow(
-            title = "1. Notification access",
-            desc = "Needed to read notifications and the now-playing song.",
-            done = listenerOk,
-            action = "GRANT",
-        ) { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-
-        StepRow(
-            title = "2. Display over other apps",
+            title = "1. Display over other apps",
             desc = "Needed to open the lock screen when you wake the phone.",
             done = overlayOk,
             action = "GRANT",
         ) { ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkgUri)) }
 
         StepRow(
-            title = "3. Battery: unrestricted",
+            title = "2. Battery: unrestricted",
             desc = "OnePlus kills background apps. Also set Battery to Unrestricted and enable Auto-launch in App info.",
             done = batteryOk,
             action = "ALLOW",
@@ -135,10 +123,6 @@ private fun SetupScreen(tick: Int) {
             enabled = v
             prefs.edit().putBoolean("lock_enabled", v).apply()
             if (v) startLockService(ctx) else ctx.stopService(Intent(ctx, LockService::class.java))
-        }
-        SwitchRow("Show message text on lock screen", showText) { v ->
-            showText = v
-            prefs.edit().putBoolean("show_text", v).apply()
         }
 
         Spacer(Modifier.height(12.dp))

@@ -25,7 +25,7 @@ data class MediaInfo(
     val controller: MediaController,
 )
 
-/** Shared state fed by [TeddyNotificationListener] and read by the lock screen UI. */
+/** Shared state reserved for notifications and media (not wired up yet); read by the lock screen UI. */
 object LockState {
     val notifications = mutableStateListOf<NotifItem>()
     var media by mutableStateOf<MediaInfo?>(null)
