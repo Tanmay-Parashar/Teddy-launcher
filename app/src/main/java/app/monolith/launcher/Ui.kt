@@ -183,7 +183,7 @@ private fun greeting(hour: Int): String = when (hour) {
 fun LauncherRoot(vm: LauncherViewModel) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val battery = rememberBattery()
-    if (landscape && battery.charging) {
+    if (landscape) {
         StandBy(battery)
     } else {
         HomeAndDrawer(vm, battery)
@@ -619,9 +619,9 @@ fun StandBy(battery: Battery) {
     val color = if (night) Color(0xFFB3261E) else Color.White
     val is24 = DateFormat.is24HourFormat(ctx)
 
-    DisposableEffect(night) {
+    DisposableEffect(night, battery.charging) {
         val window = ctx.findActivity()?.window
-        view.keepScreenOn = true
+        view.keepScreenOn = battery.charging
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         if (window != null && controller != null) {
             controller.systemBarsBehavior =
