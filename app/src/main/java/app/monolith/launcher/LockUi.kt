@@ -166,9 +166,13 @@ private fun LockClock(battery: Battery, stacked: Boolean) {
         val w = ctx.findActivity()?.window
         if (awake && w != null) {
             w.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            val lp = w.attributes
-            lp.screenBrightness = 0.04f
-            w.attributes = lp
+            val level = prefs.getInt("lock_bright", 0)
+            val b = when (level) { 1 -> 0.08f; 2 -> 0.3f; else -> -1f }
+            if (b > 0f) {
+                val lp = w.attributes
+                lp.screenBrightness = b
+                w.attributes = lp
+            }
         }
         onDispose {
             if (w != null) {

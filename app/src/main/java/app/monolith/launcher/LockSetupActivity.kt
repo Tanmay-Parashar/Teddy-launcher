@@ -136,6 +136,29 @@ private fun SetupScreen(tick: Int) {
             prefs.edit().putBoolean("lock_keepon", v).apply()
         }
 
+        Text("BRIGHTNESS WHILE CHARGING", style = TextStyle(color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, letterSpacing = 2.sp))
+        var bright by remember { mutableStateOf(prefs.getInt("lock_bright", 0)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            listOf("SYSTEM", "LOW", "MEDIUM").forEachIndexed { i, label ->
+                Text(
+                    label,
+                    modifier = Modifier
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                        .background(if (i == bright) Color.White else Color.White.copy(alpha = 0.10f))
+                        .clickable {
+                            bright = i
+                            prefs.edit().putInt("lock_bright", i).apply()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    style = TextStyle(
+                        color = if (i == bright) Color.Black else Color.White,
+                        fontSize = 12.sp,
+                        letterSpacing = 1.sp,
+                    ),
+                )
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
         Text("LANDSCAPE CLOCK COLOR", style = TextStyle(color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, letterSpacing = 2.sp))
         var colorIdx by remember { mutableStateOf(prefs.getInt("lock_color", 0)) }
