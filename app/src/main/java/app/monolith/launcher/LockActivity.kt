@@ -9,6 +9,8 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -23,8 +25,48 @@ class LockActivity : ComponentActivity() {
 
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
-            finishAndRemoveTask()
+            closeNow()
         }
+    }
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var seenLocked = false
+    private var closing = false
+
+    private val poll = object : Runnable {
+        override fun run() {
+            if (closing) return
+            val km = getSystemService(KeyguardManager::class.java)
+            if (km.isKeyguardLocked) seenLocked = true
+            else if (seenLocked) { closeNow(); return }
+            handler.postDelayed(this, 30L)
+        }
+    }
+
+    private fun closeNow() {
+        if (closing) return
+        closing = true
+        handler.removeCallbacksAndMessages(null)
+        finishAndRemoveTask()
+        if (Build.VERSION.SDK_INT >= 34) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        seenLocked = false
+        closing = false
+        handler.removeCallbacksAndMessages(null)
+        handler.post(poll)
+    }
+
+    override fun onPause() {
+        handler.removeCallbacksAndMessages(null)
+        super.onPause()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,7 +108,7 @@ class LockActivity : ComponentActivity() {
         val km = getSystemService(KeyguardManager::class.java)
         if (!km.isKeyguardLocked) {
             runCatching { after?.send() }
-            finishAndRemoveTask()
+            closeNow()
             return
         }
         km.requestDismissKeyguard(
@@ -74,7 +116,7 @@ class LockActivity : ComponentActivity() {
             object : KeyguardManager.KeyguardDismissCallback() {
                 override fun onDismissSucceeded() {
                     runCatching { after?.send() }
-                    finishAndRemoveTask()
+                    closeNow()
                 }
             },
         )
