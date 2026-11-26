@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
+import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
@@ -54,6 +55,7 @@ class LockService : Service() {
     }
 
     private var overlay: View? = null
+    private var lastWake = 0L
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
@@ -122,13 +124,24 @@ class LockService : Service() {
         }
     }
 
+    private fun isCharging(): Boolean {
+        val b = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        return (b?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+    }
+
     private fun showLock() {
         LockDiag.mark(this, "try")
+        val keepOn = getSharedPreferences("teddy", Context.MODE_PRIVATE).getBoolean("lock_keepon", true)
+        val now = System.currentTimeMillis()
+        // While charging, wake the screen straight back up so the clock stays always-on.
+        // Screen turning off again within 3s of our wake means a deliberate double press: let it sleep.
+        val wake = keepOn && isCharging() && now - lastWake > 3_000L
+        if (wake) lastWake = now
         val i = Intent(this, LockActivity::class.java).addFlags(
             Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_NO_ANIMATION or
                 Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-        )
+        ).putExtra("wake", wake)
         runCatching { startActivity(i) }
     }
 }

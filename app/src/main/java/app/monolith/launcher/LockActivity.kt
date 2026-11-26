@@ -92,9 +92,20 @@ class LockActivity : ComponentActivity() {
         super.onPause()
     }
 
+    private fun applyWake(i: Intent?) {
+        val wake = i?.getBooleanExtra("wake", false) == true
+        if (Build.VERSION.SDK_INT >= 27) {
+            setTurnScreenOn(wake)
+        } else if (wake) {
+            @Suppress("DEPRECATION")
+            window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LockDiag.mark(this, "shown")
+        applyWake(intent)
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true)
         } else {
@@ -124,6 +135,8 @@ class LockActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
+        applyWake(intent)
         LockDiag.mark(this, "shown")
     }
 
