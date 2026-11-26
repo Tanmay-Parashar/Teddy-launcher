@@ -65,7 +65,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
     val ctx = LocalContext.current
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val landscape = true // lock screen is landscape-only
     val battery = rememberBattery()
     val now = rememberNow()
     val is24 = true
