@@ -206,11 +206,7 @@ private fun LockClock(battery: Battery, stacked: Boolean) {
         showSec = true
         tapTick++
     }
-    Box(
-        Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.systemBars)
-    ) {
+    Box(Modifier.fillMaxSize()) {
         if (stacked) {
             Column(
                 Modifier.align(Alignment.Center).then(tap),
