@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.res.Configuration
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.drawBehind
@@ -73,12 +77,15 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(
-                androidx.compose.ui.graphics.Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.4f),
-                    0.38f to Color.Transparent,
-                    0.72f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = 0.5f),
+            .then(
+                if (landscape) Modifier.background(Color.Black)
+                else Modifier.background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.4f),
+                        0.38f to Color.Transparent,
+                        0.72f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.5f),
+                    )
                 )
             )
             .draggable(
@@ -99,12 +106,12 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
                 }
         ) {
             if (landscape) {
-                LockLandscape(now, is24, battery)
+                LockLandscape(battery)
             } else {
                 LockPortrait(now, is24, battery, showText, onOpen)
             }
         }
-        UnlockHandle(
+        if (!landscape) UnlockHandle(
             Modifier
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.systemBars)
@@ -288,26 +295,123 @@ private fun LockPortrait(
     }
 }
 
+/** (hours colour, minutes colour). Same colour = single-tone clock. */
+internal val LockColors = listOf(
+    Color(0xFF6AB7FF) to Color(0xFF6AB7FF), // sky blue (default)
+    Color(0xFF6FCF63) to Color(0xFF6FCF63), // lime green
+    Color(0xFFE56FD0) to Color(0xFFA982F2), // pink + purple
+    Color(0xFFFFB340) to Color(0xFFFFB340), // amber
+    Color(0xFF5EE6D0) to Color(0xFF5EE6D0), // mint
+    Color(0xFFFF4D3D) to Color(0xFFFF4D3D), // night red
+)
+
+private val CondensedBold = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(R.font.barlow_condensed_bold, FontWeight.Bold)
+)
+
 @Composable
-private fun LockLandscape(now: LocalDateTime, is24: Boolean, battery: Battery) {
-    Column(
+private fun LockLandscape(battery: Battery) {
+    val ctx = LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("teddy", Context.MODE_PRIVATE) }
+    val idx = prefs.getInt("lock_color", 0).coerceIn(0, LockColors.size - 1)
+    val (hc, mc) = LockColors[idx]
+    val keepOn = prefs.getBoolean("lock_keepon", true)
+
+    var showSec by remember { mutableStateOf(false) }
+    var tapTick by remember { mutableIntStateOf(0) }
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+
+    LaunchedEffect(showSec) {
+        while (true) {
+            now = LocalDateTime.now()
+            val ms = System.currentTimeMillis()
+            delay(if (showSec) 1_000L - (ms % 1_000L) + 5L else 60_000L - (ms % 60_000L) + 50L)
+        }
+    }
+    LaunchedEffect(showSec, tapTick) {
+        if (showSec) {
+            delay(5_000L)
+            showSec = false
+        }
+    }
+
+    val awake = keepOn && battery.charging
+    DisposableEffect(awake) {
+        val w = ctx.findActivity()?.window
+        if (awake && w != null) {
+            w.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            val lp = w.attributes
+            lp.screenBrightness = 0.04f
+            w.attributes = lp
+        }
+        onDispose {
+            if (w != null) {
+                w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                val lp = w.attributes
+                lp.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                w.attributes = lp
+            }
+        }
+    }
+
+    val size by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (showSec) 110f else 180f,
+        animationSpec = androidx.compose.animation.core.tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "size",
+    )
+    val digit = TextStyle(
+        fontFamily = CondensedBold,
+        fontWeight = FontWeight.Bold,
+        fontSize = size.sp,
+        lineHeight = size.sp,
+        letterSpacing = (-2).sp,
+        fontFeatureSettings = "tnum",
+    )
+    val colonColor = if (hc == mc) hc else Color(0xFF9A9A9A)
+
+    Box(
         Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.systemBars),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .windowInsetsPadding(WindowInsets.systemBars)
     ) {
-        DialClock(
-            now = now,
-            is24 = is24,
-            batteryLevel = battery.level,
-            color = Color.White,
-            modifier = Modifier.size(width = 560.dp, height = 250.dp),
-        )
-        LockState.media?.let {
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.width(460.dp)) { MediaCard(it) }
+        Row(
+            Modifier
+                .align(Alignment.Center)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    showSec = true
+                    tapTick++
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(now.format(DateTimeFormatter.ofPattern("HH")), style = digit.copy(color = hc))
+            Text(":", style = digit.copy(color = colonColor))
+            Text(now.format(DateTimeFormatter.ofPattern("mm")), style = digit.copy(color = mc))
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showSec,
+                enter = androidx.compose.animation.expandHorizontally() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkHorizontally() + androidx.compose.animation.fadeOut(),
+            ) {
+                Row {
+                    Text(":", style = digit.copy(color = colonColor))
+                    Text(now.format(DateTimeFormatter.ofPattern("ss")), style = digit.copy(color = mc))
+                }
+            }
         }
+        Text(
+            text = now.format(DateTimeFormatter.ofPattern("EEE d MMM")).uppercase(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 18.dp),
+            style = TextStyle(
+                color = Color(0xFFCFCFCF),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 3.sp,
+            ),
+        )
     }
 }
 

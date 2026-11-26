@@ -27,6 +27,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -123,6 +128,34 @@ private fun SetupScreen(tick: Int) {
             enabled = v
             prefs.edit().putBoolean("lock_enabled", v).apply()
             if (v) startLockService(ctx) else ctx.stopService(Intent(ctx, LockService::class.java))
+        }
+
+        var keepOn by remember { mutableStateOf(prefs.getBoolean("lock_keepon", true)) }
+        SwitchRow("Keep landscape clock on while charging", keepOn) { v ->
+            keepOn = v
+            prefs.edit().putBoolean("lock_keepon", v).apply()
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text("LANDSCAPE CLOCK COLOR", style = TextStyle(color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, letterSpacing = 2.sp))
+        var colorIdx by remember { mutableStateOf(prefs.getInt("lock_color", 0)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            LockColors.forEachIndexed { i, pair ->
+                Box(
+                    Modifier
+                        .size(30.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(pair.first)
+                        .then(
+                            if (i == colorIdx) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape)
+                            else Modifier
+                        )
+                        .clickable {
+                            colorIdx = i
+                            prefs.edit().putInt("lock_color", i).apply()
+                        }
+                )
+            }
         }
 
         Spacer(Modifier.height(12.dp))
