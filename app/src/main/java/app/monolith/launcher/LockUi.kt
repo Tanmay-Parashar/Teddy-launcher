@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
