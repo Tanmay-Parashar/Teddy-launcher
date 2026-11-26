@@ -185,7 +185,16 @@ private fun LockClock(battery: Battery, stacked: Boolean) {
     }
 
     val size by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (stacked) (if (showSec) 130f else 210f) else (if (showSec) 110f else 180f),
+        targetValue = run {
+            val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+            val w = cfg.screenWidthDp.toFloat()
+            val h = cfg.screenHeightDp.toFloat()
+            if (stacked) {
+                if (showSec) minOf(h * 0.22f, w * 0.45f) else minOf(h * 0.30f, w * 0.62f)
+            } else {
+                if (showSec) minOf(h * 0.50f, w * 0.225f) else minOf(h * 0.80f, w * 0.36f)
+            }
+        },
         animationSpec = androidx.compose.animation.core.tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "size",
     )
