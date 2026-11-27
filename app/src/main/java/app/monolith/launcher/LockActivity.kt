@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.content.pm.ActivityInfo
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -19,6 +21,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -35,6 +40,19 @@ class LockActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var seenLocked = false
     private var closing = false
+    private var userLandscape by mutableStateOf(false)
+
+    private fun setLandscape(l: Boolean) {
+        val want = if (l) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        if (requestedOrientation != want) requestedOrientation = want
+    }
+
+    private fun chargingLandscape(): Boolean {
+        val keepOn = getSharedPreferences("teddy", Context.MODE_PRIVATE).getBoolean("lock_keepon", true)
+        val b = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        return keepOn && (b?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+    }
 
     private val poll = object : Runnable {
         override fun run() {
@@ -106,6 +124,7 @@ class LockActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         LockDiag.mark(this, "shown")
         applyWake(intent)
+        setLandscape(chargingLandscape())
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true)
         } else {
@@ -126,6 +145,9 @@ class LockActivity : ComponentActivity() {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 BackHandler { /* stay on the lock screen */ }
                 LockScreen(
+                    userLandscape = userLandscape,
+                    onUserLandscape = { userLandscape = it },
+                    onOrientation = { setLandscape(it) },
                     onUnlock = { unlock(null) },
                     onOpen = { pi -> unlock(pi) },
                 )
@@ -137,6 +159,8 @@ class LockActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         applyWake(intent)
+        userLandscape = false
+        setLandscape(chargingLandscape())
         LockDiag.mark(this, "shown")
     }
 

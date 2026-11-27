@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
+import android.media.AudioManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
@@ -130,6 +131,13 @@ class LockService : Service() {
     }
 
     private fun showLock() {
+        // On a call (phone, WhatsApp, etc.) the screen goes dark at your ear. Stay out of the way so
+        // the in-call screen, not the clock, is what's there when you pull the phone away.
+        val am = getSystemService(AudioManager::class.java)
+        if (am.mode != AudioManager.MODE_NORMAL) {
+            LockDiag.mark(this, "skipcall")
+            return
+        }
         LockDiag.mark(this, "try")
         val keepOn = getSharedPreferences("teddy", Context.MODE_PRIVATE).getBoolean("lock_keepon", true)
         val now = System.currentTimeMillis()

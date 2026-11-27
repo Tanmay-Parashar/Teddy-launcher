@@ -63,7 +63,13 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
+fun LockScreen(
+    userLandscape: Boolean,
+    onUserLandscape: (Boolean) -> Unit,
+    onOrientation: (Boolean) -> Unit,
+    onUnlock: () -> Unit,
+    onOpen: (PendingIntent?) -> Unit,
+) {
     val ctx = LocalContext.current
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val battery = rememberBattery()
@@ -73,6 +79,9 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
     val dim = DimLevels[prefs.getInt("dim", 2) % DimLevels.size].coerceAtLeast(0.35f)
     val showText = prefs.getBoolean("show_text", false)
     var drag by remember { mutableFloatStateOf(0f) }
+    val keepOnPref = prefs.getBoolean("lock_keepon", true)
+    val wantLandscape = (keepOnPref && battery.charging) || userLandscape
+    LaunchedEffect(wantLandscape) { onOrientation(wantLandscape) }
     val thresholdPx = with(LocalDensity.current) { 140.dp.toPx() }
 
     Box(
@@ -96,7 +105,12 @@ fun LockScreen(onUnlock: () -> Unit, onOpen: (PendingIntent?) -> Unit) {
                     alpha = (1f + drag / 900f).coerceIn(0.2f, 1f)
                 }
         ) {
-            LockClock(battery, stacked = !landscape)
+            LockClock(
+                battery,
+                stacked = !landscape,
+                onRotate = { onUserLandscape(true) },
+                onBack = { onUserLandscape(false) },
+            )
         }
     }
 }
@@ -136,7 +150,7 @@ private val CondensedBold = androidx.compose.ui.text.font.FontFamily(
 )
 
 @Composable
-private fun LockClock(battery: Battery, stacked: Boolean) {
+private fun LockClock(battery: Battery, stacked: Boolean, onRotate: () -> Unit, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val prefs = remember { ctx.getSharedPreferences("teddy", Context.MODE_PRIVATE) }
     val idx = prefs.getInt("lock_color", 0).coerceIn(0, LockColors.size - 1)
@@ -212,8 +226,11 @@ private fun LockClock(battery: Battery, stacked: Boolean) {
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
     ) {
-        showSec = true
-        tapTick++
+        // Portrait: tapping the time rotates the lock screen to landscape. Landscape: tap shows seconds.
+        if (stacked) onRotate() else {
+            showSec = true
+            tapTick++
+        }
     }
     Box(Modifier.fillMaxSize()) {
         if (stacked) {
@@ -255,7 +272,11 @@ private fun LockClock(battery: Battery, stacked: Boolean) {
             text = now.format(DateTimeFormatter.ofPattern("EEE d MMM")).uppercase(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 18.dp),
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { onBack() }
+                .padding(horizontal = 24.dp, vertical = 14.dp),
             style = TextStyle(
                 color = Color(0xFFCFCFCF),
                 fontSize = 13.sp,
