@@ -161,7 +161,34 @@ private fun LockClock(battery: Battery, stacked: Boolean, onRotate: () -> Unit, 
     var tapTick by remember { mutableIntStateOf(0) }
     var now by remember { mutableStateOf(LocalDateTime.now()) }
 
-    LaunchedEffect(showSec) {
+    // Timers don't run while the phone sleeps, so refresh the moment the screen comes back.
+    var wake by remember { mutableIntStateOf(0) }
+    val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) wake++
+        }
+        owner.lifecycle.addObserver(obs)
+        val rcv = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: android.content.Intent) { wake++ }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            ctx,
+            rcv,
+            android.content.IntentFilter().apply {
+                addAction(android.content.Intent.ACTION_SCREEN_ON)
+                addAction(android.content.Intent.ACTION_TIME_TICK)
+                addAction(android.content.Intent.ACTION_TIME_CHANGED)
+                addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED)
+            },
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose {
+            owner.lifecycle.removeObserver(obs)
+            runCatching { ctx.unregisterReceiver(rcv) }
+        }
+    }
+    LaunchedEffect(showSec, wake) {
         while (true) {
             now = LocalDateTime.now()
             val ms = System.currentTimeMillis()
